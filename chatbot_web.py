@@ -25,7 +25,7 @@ pairs = [
 chatbot = Chat(pairs, reflections)
 
 st.set_page_config(page_title="聊天機器人 Bob", page_icon="🤖", layout="centered")
-st.title("💬 聊天機器人 Bob (改良滾動與換行版)")
+st.title("💬 聊天機器人 Bob")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -42,7 +42,7 @@ def submit_callback():
     st.session_state.user_input = ""
     st.session_state.focus_cnt += 1
 
-# CSS 樣式，含換行支持
+# CSS 樣式
 st.markdown(
     """
     <style>
@@ -55,45 +55,49 @@ st.markdown(
         border-radius: 10px;
         font-size: 16px;
     }
+    .msg-block {
+        margin-bottom: 12px;
+    }
     .user-msg {
         text-align: right; 
         background: #DCF8C6; 
         padding: 8px; 
         border-radius: 10px; 
-        margin: 8px 5px; 
         display: inline-block;
         max-width: 70%;
         word-wrap: break-word;
-        white-space: pre-wrap;   /* 讓訊息內部可換行 */
+        white-space: pre-wrap;
     }
     .bot-msg {
         text-align: left; 
         background: #E8E8E8; 
         padding: 8px; 
         border-radius: 10px; 
-        margin: 8px 5px; 
         display: inline-block;
         max-width: 70%;
         word-wrap: break-word;
-        white-space: pre-wrap;   /* 讓訊息內部可換行 */
+        white-space: pre-wrap;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# 將訊息放在可滾動容器內
+# 生成 HTML 訊息
 messages_html = "<div id='msg-container'>"
-for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        messages_html += f"<div class='user-msg'>{msg['content']}</div>"
-    else:
-        messages_html += f"<div class='bot-msg'>{msg['content']}</div>"
+for i in range(0, len(st.session_state.messages), 2):
+    user_text = st.session_state.messages[i]["content"]
+    bot_text = st.session_state.messages[i+1]["content"] if i+1 < len(st.session_state.messages) else ""
+    messages_html += "<div class='msg-block'>"
+    messages_html += f"<div class='user-msg'>{user_text}</div><br>"
+    if bot_text:
+        messages_html += f"<div class='bot-msg'>{bot_text}</div>"
+    messages_html += "</div>"
 messages_html += "</div>"
 
 st.markdown(messages_html, unsafe_allow_html=True)
 
-# 輸入框與送出按鈕
+# 輸入框 + 送出按鈕
 col1, col2 = st.columns([0.9, 0.1])
 with col1:
     st.text_input("", key="user_input", placeholder="請輸入訊息，按 Enter 送出", on_change=submit_callback)
@@ -101,25 +105,22 @@ with col2:
     if st.button("送出"):
         submit_callback()
 
-# JS 自動滾動到底並聚焦輸入框
-try:
-    if st.session_state.focus_cnt > 0:
-        js_code = """
-        (function(){
-            const msgContainer = window.parent.document.querySelector("#msg-container");
-            if(msgContainer){
-                msgContainer.scrollTop = msgContainer.scrollHeight;
-            }
-            const p = '請輸入訊息，按 Enter 送出';
-            const inputEl = window.parent.document.querySelector(`input[placeholder="${p}"]`);
-            if(inputEl){ 
-                inputEl.focus(); 
-                inputEl.selectionStart = inputEl.value.length; 
-                return true; 
-            }
-            return false;
-        })()
-        """
-        st_javascript(js_code, key=f"focus_scroll_js_{st.session_state.focus_cnt}")
-except Exception:
-    pass
+# JS 自動滾到底並聚焦輸入框
+if st.session_state.focus_cnt > 0:
+    js_code = """
+    (function(){
+        const msgContainer = window.parent.document.querySelector("#msg-container");
+        if(msgContainer){
+            msgContainer.scrollTop = msgContainer.scrollHeight;
+        }
+        const p = '請輸入訊息，按 Enter 送出';
+        const inputEl = window.parent.document.querySelector(`input[placeholder="${p}"]`);
+        if(inputEl){ 
+            inputEl.focus(); 
+            inputEl.selectionStart = inputEl.value.length; 
+            return true; 
+        }
+        return false;
+    })()
+    """
+    st_javascript(js_code, key=f"focus_scroll_js_{st.session_state.focus_cnt}")
