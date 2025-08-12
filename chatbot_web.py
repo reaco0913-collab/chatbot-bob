@@ -1,10 +1,9 @@
-# chatbot_web.py (推薦版 - 支援自動聚焦)
 import streamlit as st
 import nltk
 from nltk.chat.util import Chat, reflections
-from streamlit_javascript import st_javascript  # 需安裝 streamlit-javascript
+from streamlit_javascript import st_javascript
 
-# nltk 資料
+# 下載 nltk 資料
 try:
     nltk.data.find("tokenizers/punkt")
 except LookupError:
@@ -26,12 +25,10 @@ pairs = [
 chatbot = Chat(pairs, reflections)
 
 st.set_page_config(page_title="聊天機器人 Bob", page_icon="🤖", layout="centered")
-st.title("💬 聊天機器人 Bob (自動聚焦版)")
+st.title("💬 聊天機器人 Bob (改良滾動版)")
 
-# session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
-# 用來觸發 focus 的計數器（每次送出 +1）
 if "focus_cnt" not in st.session_state:
     st.session_state.focus_cnt = 0
 
@@ -43,9 +40,58 @@ def submit_callback():
     resp = chatbot.respond(txt)
     st.session_state.messages.append({"role": "bot", "content": resp})
     st.session_state.user_input = ""
-    st.session_state.focus_cnt += 1  # 讓下方 JS 執行
+    st.session_state.focus_cnt += 1
 
-# 輸入與按鈕
+# 訊息區 (固定高度 + 滾動)
+st.markdown(
+    """
+    <style>
+    #msg-container {
+        height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 10px;
+        background: #f9f9f9;
+        border-radius: 10px;
+        font-size: 16px;
+    }
+    .user-msg {
+        text-align: right; 
+        background: #DCF8C6; 
+        padding: 8px; 
+        border-radius: 10px; 
+        margin: 5px; 
+        display: inline-block;
+        max-width: 70%;
+        word-wrap: break-word;
+    }
+    .bot-msg {
+        text-align: left; 
+        background: #E8E8E8; 
+        padding: 8px; 
+        border-radius: 10px; 
+        margin: 5px; 
+        display: inline-block;
+        max-width: 70%;
+        word-wrap: break-word;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# 用 HTML 把訊息包在 msg-container 裡
+messages_html = "<div id='msg-container'>"
+for msg in st.session_state.messages:
+    if msg["role"] == "user":
+        messages_html += f"<div class='user-msg'>{msg['content']}</div>"
+    else:
+        messages_html += f"<div class='bot-msg'>{msg['content']}</div>"
+messages_html += "</div>"
+
+st.markdown(messages_html, unsafe_allow_html=True)
+
+# 輸入框與送出按鈕
 col1, col2 = st.columns([0.9, 0.1])
 with col1:
     st.text_input("", key="user_input", placeholder="請輸入訊息，按 Enter 送出", on_change=submit_callback)
@@ -53,33 +99,25 @@ with col2:
     if st.button("送出"):
         submit_callback()
 
-# 顯示訊息
-for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        st.markdown(
-            f"<div style='text-align:right; background:#DCF8C6; padding:8px; border-radius:10px; display:inline-block; margin:5px;'>{msg['content']}</div>",
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            f"<div style='text-align:left; background:#E8E8E8; padding:8px; border-radius:10px; display:inline-block; margin:5px;'>{msg['content']}</div>",
-            unsafe_allow_html=True,
-        )
-
-# 使用 streamlit-javascript 把游標聚焦回輸入框（利用 placeholder 做為 selector）
-# 這段 JS 會在每次 focus_cnt 變動時執行一次
+# 用 JS 自動把滾動條拉到底，並聚焦輸入框
 try:
     if st.session_state.focus_cnt > 0:
         js_code = """
         (function(){
+            const msgContainer = window.parent.document.querySelector("#msg-container");
+            if(msgContainer){
+                msgContainer.scrollTop = msgContainer.scrollHeight;
+            }
             const p = '請輸入訊息，按 Enter 送出';
-            const el = window.parent.document.querySelector(`input[placeholder="${p}"]`);
-            if(el){ el.focus(); el.selectionStart = el.value.length; return true; }
+            const inputEl = window.parent.document.querySelector(`input[placeholder="${p}"]`);
+            if(inputEl){ 
+                inputEl.focus(); 
+                inputEl.selectionStart = inputEl.value.length; 
+                return true; 
+            }
             return false;
         })()
         """
-        # st_javascript 會執行並回傳值；加上 key 保證每次 focus_cnt 變動時會重新執行
-        st_javascript(js_code, key=f"focus_js_{st.session_state.focus_cnt}")
+        st_javascript(js_code, key=f"focus_scroll_js_{st.session_state.focus_cnt}")
 except Exception:
-    # 若 cloud 環境沒安裝或 JS 權限被阻擋，就不用擔心，功能只是改善使用體驗
     pass
