@@ -1,10 +1,8 @@
 import streamlit as st
-import random
-import re
 import nltk
 from nltk.chat.util import Chat, reflections
 
-# 確保第一次部署時會下載 nltk 資料
+# ✅ 確保第一次部署時會自動下載 nltk 資料
 try:
     nltk.data.find("tokenizers/punkt")
 except LookupError:
@@ -28,7 +26,7 @@ pairs = [
 
 chatbot = Chat(pairs, reflections)
 
-# Streamlit 頁面設定
+# 頁面設定
 st.set_page_config(page_title="聊天機器人 Bob", page_icon="🤖", layout="centered")
 st.title("💬 聊天機器人 Bob")
 st.write("輸入訊息與 Bob 對話。")
@@ -41,24 +39,21 @@ if "messages" not in st.session_state:
 for msg in st.session_state.messages:
     if msg["role"] == "user":
         st.markdown(
-            f"<div style='text-align: right; background-color: #DCF8C6; padding: 8px; border-radius: 10px; margin: 5px;'>{msg['content']}</div>",
+            f"<div style='text-align: right; background-color: #DCF8C6; padding: 8px; border-radius: 10px; margin: 5px; display: inline-block;'>{msg['content']}</div>",
             unsafe_allow_html=True
         )
     else:
         st.markdown(
-            f"<div style='text-align: left; background-color: #E8E8E8; padding: 8px; border-radius: 10px; margin: 5px;'>{msg['content']}</div>",
+            f"<div style='text-align: left; background-color: #E8E8E8; padding: 8px; border-radius: 10px; margin: 5px; display: inline-block;'>{msg['content']}</div>",
             unsafe_allow_html=True
         )
 
-# 輸入框
-user_input = st.text_input("輸入訊息：", "")
+# 使用 Streamlit form 來避免 rerun 錯誤
+with st.form(key="chat_form", clear_on_submit=True):
+    user_input = st.text_input("輸入訊息：", "")
+    submit_button = st.form_submit_button("送出")
 
-if user_input:
-    # 使用者訊息
+if submit_button and user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
-
-    # 機器人回應
     response = chatbot.respond(user_input)
     st.session_state.messages.append({"role": "bot", "content": response})
-
-    st.experimental_rerun()
