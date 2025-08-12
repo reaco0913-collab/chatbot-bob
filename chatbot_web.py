@@ -25,7 +25,7 @@ pairs = [
 chatbot = Chat(pairs, reflections)
 
 st.set_page_config(page_title="聊天機器人 Bob", page_icon="🤖", layout="centered")
-st.title("💬 聊天機器人 Bob (改良滾動版)")
+st.title("💬 聊天機器人 Bob (改良滾動與換行版)")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -42,7 +42,7 @@ def submit_callback():
     st.session_state.user_input = ""
     st.session_state.focus_cnt += 1
 
-# 訊息區 (固定高度 + 滾動)
+# CSS 樣式，含換行支持
 st.markdown(
     """
     <style>
@@ -60,27 +60,29 @@ st.markdown(
         background: #DCF8C6; 
         padding: 8px; 
         border-radius: 10px; 
-        margin: 5px; 
+        margin: 8px 5px; 
         display: inline-block;
         max-width: 70%;
         word-wrap: break-word;
+        white-space: pre-wrap;   /* 讓訊息內部可換行 */
     }
     .bot-msg {
         text-align: left; 
         background: #E8E8E8; 
         padding: 8px; 
         border-radius: 10px; 
-        margin: 5px; 
+        margin: 8px 5px; 
         display: inline-block;
         max-width: 70%;
         word-wrap: break-word;
+        white-space: pre-wrap;   /* 讓訊息內部可換行 */
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# 用 HTML 把訊息包在 msg-container 裡
+# 將訊息放在可滾動容器內
 messages_html = "<div id='msg-container'>"
 for msg in st.session_state.messages:
     if msg["role"] == "user":
@@ -99,7 +101,7 @@ with col2:
     if st.button("送出"):
         submit_callback()
 
-# 用 JS 自動把滾動條拉到底，並聚焦輸入框
+# JS 自動滾動到底並聚焦輸入框
 try:
     if st.session_state.focus_cnt > 0:
         js_code = """
