@@ -4,29 +4,54 @@ import nltk
 from nltk.chat.util import Chat, reflections
 import html
 import streamlit.components.v1 as components
+import re
 
 try:
     nltk.data.find("tokenizers/punkt")
 except LookupError:
     nltk.download("punkt")
 
+# 紙箱尺寸資料
+box_data = {
+    "A10": "25 × 18 × 17",
+    "A20": "51 × 20 × 18",
+    "A40": "51 × 38 × 18",
+    "DM": "48 × 32 × 20",
+    "DMCL": "48 × 32 × 20",
+    "DT": "53 × 36 × 27",
+    "i10": "40 × 40 × 20",
+    "i12": "40 × 40 × 24",
+    "LR01": "39 × 34 × 33",
+    "S10": "35 × 35 × 22",
+    "S20": "70 × 35 × 25",
+    "S3": "35 × 35 × 9",
+    "T10": "60 × 35 × 28",
+    "VM": "49 × 29 × 23"
+}
+
+def find_box_size(user_input):
+    query = user_input.strip().upper()
+    # 精確匹配
+    if query in box_data:
+        return f"{query} 的尺寸是 {box_data[query]} 公分"
+    # 模糊匹配
+    for code, size in box_data.items():
+        if query in code:
+            return f"{code} 的尺寸是 {size} 公分"
+    return "抱歉，查無此紙箱代號，請確認輸入是否正確。"
+
+# 對話規則
 pairs = [
-    [r"hi|嗨|哈囉|您好", ["日安!", "哈囉!", "您好,我可以幫您甚麼?"]],
-    [r"你是誰", ["我是聊天機器人,您可以稱我是Bob。有甚麼需要幫忙的?"]],
-    [r"(.*)電腦無法開機", ["請問電源燈有亮嗎?", "硬碟指示燈有閃爍嗎?"]],
-    [r"電源燈沒有亮", ["請確認電源線確實插好"]],
-    [r"硬碟燈沒有閃", ["可能硬碟故障,請聯絡經銷商檢修"]],
-    [r"電源燈有亮", ["還有其他現象嗎"]],
-    [r"硬碟燈有閃", ["這表示硬碟是有作用的"]],
-    [r"螢幕沒有畫面\??", ["請檢查螢幕訊號線是否牢固", "請確認訊號線插在正確位址"]],
-    [r"作業系統停止運作\??", ["最近有安裝過新的軟體嗎", "請檢查工作管理員中是否有異常軟體正在執行"]],
-    [r"(.*)", ["可以告訴我更多的訊息", "請您再描述清楚一點"]]
+    [r"hi|嗨|哈囉|您好", ["日安!", "哈囉!", "您好，我是紙箱小幫手 Boxy，您可以輸入紙箱代號查詢尺寸"]],
+    [r"你是誰", ["我是紙箱小幫手 Boxy，專門幫您查紙箱尺寸"]],
+    [r"查詢紙箱\s*(\w+)", [lambda matches: find_box_size(matches.group(1))]],
+    [r"(\w+)", [lambda matches: find_box_size(matches.group(1))]]
 ]
 
 chatbot = Chat(pairs, reflections)
 
-st.set_page_config(page_title="聊天機器人 Bob", page_icon="🤖", layout="wide")
-st.title("💬 聊天機器人 Bob")
+st.set_page_config(page_title="紙箱小幫手 Boxy", page_icon="📦", layout="wide")
+st.title("📦 紙箱小幫手 Boxy")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -35,7 +60,7 @@ if "messages" not in st.session_state:
 with st.form(key="chat_form", clear_on_submit=True):
     cols = st.columns([0.95, 0.05])
     with cols[0]:
-        user_input = st.text_input("", placeholder="請輸入訊息，按 Enter 送出")
+        user_input = st.text_input("", placeholder="請輸入紙箱代號，例如 A10 或 查詢紙箱 A10")
     with cols[1]:
         submitted = st.form_submit_button("送出")
 
