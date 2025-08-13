@@ -1,11 +1,10 @@
-# chatbot_web.py - 修正版（只用 components.html 作為唯一訊息容器）
+# chatbot_web.py - 修正版（即時顯示 Q&A，無延遲）
 import streamlit as st
 import nltk
 from nltk.chat.util import Chat, reflections
 import html
 import streamlit.components.v1 as components
 
-# 確保 nltk tokenizers/punkt 存在（第一次部署會自動下載）
 try:
     nltk.data.find("tokenizers/punkt")
 except LookupError:
@@ -29,11 +28,23 @@ chatbot = Chat(pairs, reflections)
 st.set_page_config(page_title="聊天機器人 Bob", page_icon="🤖", layout="wide")
 st.title("💬 聊天機器人 Bob")
 
-# session_state 初始
 if "messages" not in st.session_state:
-    st.session_state.messages = []  # 每項為 {"role": "...", "content": "..."}
+    st.session_state.messages = []
 
-# 建構訊息的 HTML（全部由這個 component 呈現，避免雙卷軸）
+# 1️⃣ 處理輸入，先更新對話紀錄
+with st.form(key="chat_form", clear_on_submit=True):
+    cols = st.columns([0.95, 0.05])
+    with cols[0]:
+        user_input = st.text_input("", placeholder="請輸入訊息，按 Enter 送出")
+    with cols[1]:
+        submitted = st.form_submit_button("送出")
+
+    if submitted and user_input.strip():
+        st.session_state.messages.append({"role": "user", "content": user_input.strip()})
+        resp = chatbot.respond(user_input.strip()) or ""
+        st.session_state.messages.append({"role": "bot", "content": resp})
+
+# 2️⃣ 再顯示對話（包含最新一輪 Q&A）
 def build_messages_html(messages):
     css = """
     <style>
@@ -63,20 +74,14 @@ def build_messages_html(messages):
     .msg-bot { background: #E8E8E8; }
     </style>
     """
-
     body = "<div class='msg-container' id='msg-container'>"
     for m in messages:
-        role = m.get("role", "bot")
-        content = m.get("content", "")
-        # escape html, 保留換行
-        esc = html.escape(content).replace("\n", "<br>")
-        if role == "user":
+        esc = html.escape(m["content"]).replace("\n", "<br>")
+        if m["role"] == "user":
             body += f"<div class='msg-row user'><div class='msg-bubble msg-user'>{esc}</div></div>"
         else:
             body += f"<div class='msg-row bot'><div class='msg-bubble msg-bot'>{esc}</div></div>"
     body += "</div>"
-
-    # JS：component 重繪後自動滾動到底
     js = """
     <script>
     (function(){
@@ -84,7 +89,6 @@ def build_messages_html(messages):
             var c = document.getElementById('msg-container');
             if(c){ c.scrollTop = c.scrollHeight; }
         }
-        // 若 DOM 已就緒就滾動，否則等 load
         if (document.readyState === 'complete') {
             setTimeout(scrollToBottom, 50);
         } else {
@@ -95,20 +99,5 @@ def build_messages_html(messages):
     """
     return css + body + js
 
-# 先顯示訊息區（component）
 messages_html = build_messages_html(st.session_state.messages)
 components.html(messages_html, height=520, scrolling=True)
-
-# 再顯示輸入區（確保輸入永遠在訊息區下方）
-with st.form(key="chat_form", clear_on_submit=True):
-    cols = st.columns([0.95, 0.05])
-    with cols[0]:
-        user_input = st.text_input("", placeholder="請輸入訊息，按 Enter 送出")
-    with cols[1]:
-        submitted = st.form_submit_button("送出")
-
-    if submitted and user_input and user_input.strip():
-        st.session_state.messages.append({"role": "user", "content": user_input.strip()})
-        resp = chatbot.respond(user_input.strip()) or ""
-        st.session_state.messages.append({"role": "bot", "content": resp})
-        # form 的 clear_on_submit=True 會自動清除輸入欄，Streamlit 會重新執行並重新 render component（自動滾到底）
